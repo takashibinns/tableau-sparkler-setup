@@ -3,10 +3,11 @@
 
 #######################################################################
 # To call, use the following syntax
-# sudo setup.sh "/path/to/config"   										  #
+# sudo setup.sh "/path/to/config" "/path/to/sparkler.xml"			  #
 #######################################################################
 
 # Read variable definitions from the config file
+SPARKLER_XML=$2;	# Path to the sparkler.xml file
 CONFIG_PATH=$1;     # Path to the config file
 source $CONFIG_PATH
 
@@ -22,6 +23,7 @@ groupadd tomcat
 useradd -M -s /bin/nologin -g tomcat -d /opt/tomcat tomcat
 
 #	Download/unpack the tomcat files
+mkdir /opt/tomcat
 wget -O /opt/tomcat.tar.gz $TOMCAT_DOWNLOAD
 tar xvf /opt/tomcat.tar.gz -C /opt/tomcat --strip-components=1
 
@@ -60,3 +62,20 @@ WantedBy=multi-user.target" > /etc/systemd/system/tomcat.service
 
 #	Restart systemd, to pick up on this new unit
 systemctl daemon-reload
+
+#######################################################################
+# 	Step 2: Configure Sparkler Web App								  #
+#######################################################################
+
+#	Download/unpack the tomcat war file
+wget -O /tmp/sparkler.zip $SPARKLER_DOWNLOAD
+unzip /tmp/sparkler.zip
+unzip /tmp/sparkler/Sparkler-1.04.zip -d /opt/tomcat/webapps/sparkler.war
+
+#	Copy the sparkler.xml config file, to the web app directory
+mkdir /opt/tomcat/Catalina
+mkdir /opt/tomcat/Catalina/localhost
+mv $SPARKLER_XML /opt/tomcat/Catalina/localhost/sparkler.xml
+
+#	Restart the tomcat service
+systemctl restart tomcat.service
