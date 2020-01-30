@@ -1,0 +1,101 @@
+<!-- Sparkler Configuration File -->
+<!-- Options are enabled by removing the beginning "<!- -" and trailing "- ->" from the corresponding <Environment..../> tag. Enabled options should look
+     the required "sparkler.sfdc.consumerSecret" option. -->
+<Context>
+    <!-- SALESFORCE.COM SETTINGS -->
+        <!-- Consumer secret set by Salesfore.com. This value will be found in the Salesforce.com admin interface. See the Sparkler documentation for further details -->
+        <Environment name="sparkler.sfdc.consumerSecret" value="{SET ME}" type="java.lang.String" override="false" />
+
+        <!-- List of organization-specific Salesforce.com consumer secrets. The text after "sparkler.sfdc.org." in name specifies the organization name,
+             and value is set as the consumer secret for that organization. -->
+        <!-- <Environment name="sparkler.sfdc.org.{SET ORG NAME}" value="{SET ORG CS}" type="java.lang.String" override="false" /> -->
+
+    <!-- TABLEAU SERVER TRUSTED TICKET SETTINGS -->
+        <!-- Specifies whether or not to use Trusted Tickets. If set as "true", sparkler.tableau.host must be set as well.
+             Default: false -->
+        <!--<Environment name="sparkler.tableau.useTrustedTickets" value="false" type="java.lang.Boolean" override="false" /> -->
+
+        <!-- Host name or IP address for Tableau Server. This should not contain "http://" or "https://". Required if Trusted Tickets are enabled. -->
+        <!-- <Environment name="sparkler.tableau.host" value="{SET ME}" type="java.lang.String" override="false" /> -->
+
+        <!-- Port on which Tableau Server is listening
+             Default: 80 -->
+        <!-- <Environment name="sparkler.tableau.port" value="80" type="java.lang.Integer" override="false" /> -->
+
+        <!-- Specifies whether or not Tableau Server is running with SSL
+             Default: false -->
+        <!-- <Environment name="sparkler.tableau.isSecure" value="false" type="java.lang.Boolean" override="false" /> -->
+
+        <!-- Valid Tableau Server username to be used for testing the Trusted Ticket request on the Sparkler status page. -->
+        <!-- <Environment name="sparkler.tableau.test.userName" value="{SET ME}" type="java.lang.String" override="false" /> -->
+
+        <!-- Options to map from SF user identity to Tableau Server user name -->
+        <!-- <Environment name="sparkler.sfdc.userIdentifierField" value="{SET ME}" type="java.lang.String" override="false" /> -->
+
+        <!-- List of allowed email domains separated by comma. This field is required when sparkler.sfdc.userIdentifierField is set to be "email.user" -->
+        <!-- <Environment name="sparkler.sfdc.emailDomainsAllowed" value="{SET ME}" type="java.lang.String" override="false" /> -->
+
+        <!-- Time skew threshold to validate the freshness of the signed user identity come from SF server.
+             Default: 300 -->
+        <!-- <Environment name="sparkler.tableau.signedIdentitySkewSeconds" value="300" type="java.lang.Integer" override="false" /> -->
+
+    <!-- VIZ EMBED SETTINGS -->
+        <!-- External URL for Tableau Server to be used in the embedded Viz HTML sent to the user's browser. This is NOT
+             the URL used by Sparkler to communicate with Tableau Server. Only set this parameter if the external URL for Tableau
+             Server is different than that used for Trusted Tickets. Note that this must be a complete URL and begin with either
+             "http://" or "https://". -->
+        <!-- <Environment name="sparkler.tableau.externalURL" value="{SET ME}" type="java.lang.String" override="false" /> -->
+
+        <!-- If Tableau Server is configured with multiple sites, this specifies the default site to use for Trusted Ticket requests
+             and Viz embeds. -->
+        <!-- <Environment name="sparkler.tableau.trustedTicketSiteId" value="{SET ME}" type="java.lang.String" override="false" /> -->
+
+        <!-- Site root for all Tableau Server requests. This will be appended to the URL of all requests. -->
+        <!-- <Environment name="sparkler.tableau.siteRoot" value="{SET ME}" type="java.lang.String" override="false" /> -->
+
+        <!-- Viz embed parameter that specifies whether or not to show the toolbar in the embedded Viz.
+             Default: false -->
+        <!-- <Environment name="sparkler.tableau.showToolbar" value="false" type="java.lang.Boolean" override="false" /> -->
+
+        <!-- Viz embed parameter that specifies whether or not to show tabs in the embedded Viz.
+             Default: false -->
+        <!-- <Environment name="sparkler.tableau.showTabs" value="false" type="java.lang.Boolean" override="false" /> -->
+
+        <!-- Viz embed parameter that specifies the location of the Tableau JavaScript library used to render a Viz on a web page.
+             This file is hosted on Tableau Server, but the location can be specified as a path from the root URL on Tableau Server.
+             Default: /javascripts/api/viz_v1.js -->
+        <!-- <Environment name="sparkler.tableau.javascriptLib" value="/javascripts/api/viz_v1.js" type="java.lang.String" override="false" /> -->
+
+    <!-- PROXY SETTINGS -->
+        <!-- Host name or IP address for the proxy server. If this value is specified, userName and password are required. -->
+        <!--<Environment name="sparkler.proxy.host" value="{SET ME}" type="java.lang.String" override="false" /> -->
+
+        <!-- Port on which the proxy server is listening.
+             Default: 80 -->
+        <!-- <Environment name="sparkler.proxy.port" value="80" type="java.lang.Integer" override="false" /> -->
+
+        <!-- Specifies whether or not the proxy is running with SSL
+             Default: false -->
+        <!-- <Environment name="sparkler.proxy.isSecure" value="false" type="java.lang.Boolean" override="false" /> -->
+
+        <!-- Proxy server username -->
+        <!-- <Environment name="sparkler.proxy.userName" value="{SET ME}" type="java.lang.String" override="false" /> -->
+
+        <!-- Proxy server password -->
+        <!-- <Environment name="sparkler.proxy.password" value="{SET ME}" type="java.lang.String" override="false" /> -->
+
+    <!-- DEBUG SETTINGS -->
+        <!-- Sets the Sparkler log level. Possible values are: OFF, FATAL, ERROR, WARN, INFO, DEBUG, ALL
+             Default: INFO -->
+        <!-- <Environment name="sparkler.log.level" value="INFO" type="java.lang.String" override="false" /> -->
+
+        <!-- Sets the Sparkler root log level. Possible values are: OFF, FATAL, ERROR, WARN, INFO, DEBUG, ALL
+             Default: INFO -->
+        <!-- <Environment name="sparkler.log.rootLevel" value="INFO" type="java.lang.String" override="false" /> -->
+
+        <!-- Enables the Sparkler status page at /status to assist with configuring and debugging Sparkler. If this feature
+             is enabled, a red warning message will appear on all Viz embed pages. This feature should be disabled in production
+             environments.
+             Default: false -->
+        <!-- <Environment name="sparkler.app.statusPage" value="false" type="java.lang.Boolean" override="false" /> -->
+</Context>
