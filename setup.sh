@@ -76,9 +76,9 @@ unzip /tmp/Sparkler-1.04/Sparkler-1.04.zip
 mv /tmp/Sparkler-1.04/sparkler-1.0.4.war /opt/tomcat/webapps/sparkler.war
 
 #	Copy the sparkler.xml config file, to the web app directory
-mkdir /opt/tomcat/Catalina
-mkdir /opt/tomcat/Catalina/localhost
-mv $SPARKLER_XML /opt/tomcat/Catalina/localhost/sparkler.xml
+mkdir /opt/tomcat/conf/Catalina
+mkdir /opt/tomcat/conf/Catalina/localhost
+mv $SPARKLER_XML /opt/tomcat/conf/Catalina/localhost/sparkler.xml
 
 #	Restart the tomcat service
 systemctl restart tomcat.service
