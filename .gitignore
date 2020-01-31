@@ -1,0 +1,2 @@
+#	Ignore our healthcare environment's cloudformation template
+healthcare-sparkler-cloudformation-template.json
