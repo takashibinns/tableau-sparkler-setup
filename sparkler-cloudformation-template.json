@@ -1,0 +1,322 @@
+{
+  "AWSTemplateFormatVersion" : "2010-09-09",
+  "Description" : "AWS CloudFormation template, which creates an instance of Tableau Sparkler",
+  "Metadata": {
+    "AWS::CloudFormation::Interface": {
+      "ParameterGroups": [
+        {
+          "Label": {
+            "default": "AWS Settings"
+          },
+          "Parameters": [
+            "InstanceType",
+            "SubnetID",
+            "KeyName"
+          ]
+        },
+        {
+          "Label": {
+            "default": "Salesforce Settings"
+          },
+          "Parameters": [
+            "sConsumerSecret",
+            "sUserIdentifierField",
+            "sAllowedEmailDomains"
+          ]
+        },
+        {
+          "Label": {
+            "default": "Tableau Server"
+          },
+          "Parameters": [
+            "tHostname",
+            "tUseSSL",
+            "tPort",
+            "tTestUsername",
+            "tEnableTrustedTickets",
+            "tEnableSparklerStatusPage"
+          ]
+        }
+      ],
+      "ParameterLabels": {
+        "KeyName": {
+          "default": "Key Pair"
+        },
+        "sConsumerSecret": {
+          "default": "SFDC Connected App Consumer Secret"
+        },
+        "sUserIdentifierField": {
+          "default": "SFDC UserIdentifierField"
+        },
+        "sAllowedEmailDomains": {
+          "default": "SFDC Allowed Email Domains"
+        },
+        "tHostname": {
+          "default": "Tableau Server host"
+        },
+        "tUseSSL": {
+          "default": "Tableau Server SSL"
+        },
+        "tPort": {
+          "default": "Tableau Server port"
+        },
+        "tEnableTrustedTickets": {
+          "default": "Use Trusted Tickets for SSO"
+        },
+        "tTestUsername": {
+          "default": "Tableau User for testing Sparkler"
+        },
+        "tEnableSparklerStatusPage": {
+          "default": "Enable Sparkler's status page"
+        }
+      }
+    }
+  },
+  "Parameters" : {
+    "KeyName": {
+      "Description" : "Name of an existing EC2 KeyPair to enable SSH access to the instance",
+      "Type": "AWS::EC2::KeyPair::KeyName",
+      "ConstraintDescription" : "must be the name of an existing EC2 KeyPair."
+    },
+    "SubnetID" : {
+      "Description" : "Subnet ID: Where should the new Tableau Server live?",
+      "Type" : "String",
+    },
+    "InstanceType" : {
+      "Description" : "EC2 instance type",
+      "Type" : "String",
+      "Default" : "t2.micro",
+      "AllowedValues" : [ "t2.nano", "t2.micro", "t2.small", "t2.medium", "t2.large", "t2.xlarge"],
+      "ConstraintDescription" : "must be a valid EC2 instance type."
+    },
+    "sConsumerSecret" : {
+      "Description" : "Consumer Secret of the connected app in Salesforce",
+      "Type" : "String",
+    },
+    "sUserIdentifierField" : {
+      "Description" : "Consumer Secret of the connected app in Salesforce",
+      "Type" : "String",
+      "Default" : "userName.user",
+      "AllowedValues" : [ "userName", "userName.user", "email", "email.user", "userId", "signedIdentity"],
+      "ConstraintDescription" : "The list of possible options is defined by Sparkler"
+    },
+    "sAllowedEmailDomains" : {
+      "Description" : "List of allowed email domains separated by comma.  This is only required when using 'email.user' for the Salesforce user identity setting",
+      "Type" : "String"
+    },
+    "tHostname" : {
+      "Description" : "URL to your Tableau Server",
+      "Type" : "String",
+    },
+    "tUseSSL" : {
+      "Description" : "Does your Tableau Server have SSL enabled?",
+      "Type" : "String",
+      "AllowedValues": [
+        "true",
+        "false"
+      ],
+      "Default": "true"
+    },
+    "tPort" : {
+      "Description" : "What port is Tableau Server running on?",
+      "Type" : "Number",
+      "MinValue":"1",
+      "MaxValue":"10000",
+      "Default": 443
+    },
+    "tEnableTrustedTickets" : {
+      "Description" : "Should we use trusted ticket for SSO to Tableau Server?",
+      "Type" : "String",
+      "AllowedValues": [
+        "true",
+        "false"
+      ],
+      "Default": "true"
+    },
+    "tTestUsername" : {
+      "Description" : "Username to use for testing connectivity",
+      "Type" : "String",
+    },
+    "tEnableSparklerStatusPage" : {
+      "Description" : "Should the sparkler web app's status page be enabled?",
+      "Type" : "String",
+      "AllowedValues": [
+        "true",
+        "false"
+      ],
+      "Default": "true"
+    }
+  },
+  "Mappings" : {
+    "sparkler": {
+      "links": {
+        "tomcat": "http://mirror.cc.columbia.edu/pub/software/apache/tomcat/tomcat-7/v7.0.99/bin/apache-tomcat-7.0.99.tar.gz",
+        "sparkler": "https://downloads.tableau.com/tssoftware/Sparkler-1.04.zip",
+        "installer": "https://raw.githubusercontent.com/takashibinns/tableau-sparkler-setup/master/setup.sh"
+      }
+    },
+    "aws": {
+      "LoadBalancer": {
+        "targetgroup": "<load-balancer-target-group-arn>",
+        "script": "https://raw.githubusercontent.com/takashibinns/tableau-sparkler-setup/master/update-load-balancer.sh"
+      },
+      "ec2": {
+        "ami": "ami-0c5204531f799e0c6",
+        "securitygroups": "<my-security-group-1>,<my-security-group-2>,<my-security-group-n>",
+        "iaminstanceprofile": "<my-iam-role-name>"
+      }
+    }
+  },
+  "Conditions": {
+    "SfUserIdentityIsEmailUser": {"Fn::Not": [{"Fn::Equals": ["email.user", {"Ref": "sUserIdentifierField"}]}]}
+  },
+  "Resources" : {
+    "SparklerEC2" : {
+      "Type" : "AWS::EC2::Instance",
+      "Metadata": {
+        "AWS::CloudFormation::Init": {
+          "configSets":{
+            "Setup": [ "1","2"]
+          },
+          "1": {
+            "packages": {
+                "rpm": {
+                    "epel-release": "https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm"
+                },
+                "yum": {
+                    "awscli": []
+                }
+            },
+            "files": {
+              "/tmp/config": {
+                "content": {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "TOMCAT_DOWNLOAD=\"", {"Fn::FindInMap": ["sparkler","links","tomcat"]}, "\"\n",
+                      "SPARKLER_DOWNLOAD=\"", {"Fn::FindInMap": ["sparkler","links","sparkler"]}, "\"\n"
+                    ]
+                  ]
+                }
+              },
+              "/tmp/sparkler.xml":{
+                "content": {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "<Context>\n",
+                      "  <Environment name=\"sparkler.sfdc.consumerSecret\" value=\"",{ "Ref" : "sConsumerSecret" },"\" type=\"java.lang.String\" override=\"false\" />\n",
+                      "  <Environment name=\"sparkler.tableau.useTrustedTickets\" value=\"",{ "Ref" : "tEnableTrustedTickets" },"\" type=\"java.lang.String\" override=\"false\" />\n",
+                      "  <Environment name=\"sparkler.tableau.host\" value=\"",{ "Ref" : "tHostname" },"\" type=\"java.lang.String\" override=\"false\" />\n",
+                      "  <Environment name=\"sparkler.tableau.port\" value=\"",{ "Ref" : "tPort" },"\" type=\"java.lang.Integer\" override=\"false\" />\n",
+                      "  <Environment name=\"sparkler.tableau.isSecure\" value=\"",{ "Ref" : "tUseSSL" },"\" type=\"java.lang.String\" override=\"false\" />\n",
+                      "  <Environment name=\"sparkler.tableau.test.userName\" value=\"",{ "Ref" : "tTestUsername" },"\" type=\"java.lang.String\" override=\"false\" />\n",
+                      "  <Environment name=\"sparkler.sfdc.userIdentifierField\" value=\"",{ "Ref" : "sUserIdentifierField" },"\" type=\"java.lang.String\" override=\"false\" />\n",
+                      {"Fn::If": [
+                        "SfUserIdentityIsEmailUser", 
+                        "",
+                        {"Fn::Sub": "  <Environment name=\"sparkler.sfdc.emailDomainsAllowed\" value=\"${sAllowedEmailDomains}\" type=\"java.lang.String\" override=\"false\" />\n"}
+                      ]},
+                      "  <Environment name=\"sparkler.tableau.signedIdentitySkewSeconds\" value=\"300\" type=\"java.lang.Integer\" override=\"false\" />\n",
+                      "  <Environment name=\"sparkler.app.statusPage\" value=\"",{ "Ref" : "tEnableSparklerStatusPage" },"\" type=\"java.lang.Boolean\" override=\"false\" />\n",
+                      "</Context>"
+                    ]
+                  ]
+                }
+              },
+              "/tmp/setup.sh":{
+                "mode": "550",
+                "source": { "Fn::FindInMap" : [ "sparkler", "links", "installer"]}
+              },
+              "/tmp/update-load-balancer.sh":{
+                "mode": "550",
+                "source": { "Fn::FindInMap" : [ "aws", "LoadBalancer", "script"]}
+              }
+            }
+          },
+          "2":{
+            "commands": {
+              "2a-setup-sparkler": {
+                "cwd":"/tmp",
+                "command": "./setup.sh \"/tmp/config\" \"/tmp/sparkler.xml\""
+              },
+              "2b-add-to-lb":{
+                "cwd":"/tmp/",
+                "command":  {
+                  "Fn::Join": [
+                    " ",
+                    [ 
+                      "./update-load-balancer.sh ",
+                      { "Fn::FindInMap" : [ "aws", "LoadBalancer", "targetgroup"]},
+                      { "Ref" : "AWS::Region" },
+                      "false"
+                    ]
+                  ]
+                }
+              },
+            }
+          }
+        }
+      },
+      "Properties" : {
+        "InstanceType" : { "Ref" : "InstanceType" },
+        "SubnetId": { "Ref" : "SubnetID" },
+        "SecurityGroupIds" : { 
+          "Fn::Split" : [ 
+            ",", 
+            { "Fn::FindInMap": [ "aws", "ec2", "securitygroups" ] }
+          ]
+        },
+        "IamInstanceProfile" : { "Fn::FindInMap" : [ "aws", "ec2", "iaminstanceprofile"]},
+        "KeyName" : { "Ref" : "KeyName" },
+        "ImageId" : { "Fn::FindInMap" : [ "aws", "ec2", "ami"]},
+        "Tags": [
+          {"Key": "Name", "Value":"New Server for Sparkler"}
+        ],
+        "UserData" : { 
+          "Fn::Base64" : { 
+            "Fn::Join" : [
+              "", 
+              [
+               "#!/bin/bash -xe\n",
+               "",
+               "# Update name tag for this instance \n",
+               "NEW_NAME=\"Sparkler Server ($(date +%m-%d-%Y))\" \n",
+               "AWS_INSTANCE_ID=$(curl http://169.254.169.254/latest/meta-data/instance-id) \n",
+               "aws ec2 create-tags --resources $AWS_INSTANCE_ID --region ", { "Ref" : "AWS::Region" }, " --tags ",
+               "Key=Name,Value=\"$NEW_NAME\" \n",
+               "",
+               "# Kick off the config set \n",
+               "/opt/aws/bin/cfn-init -v ",
+               "         --stack ", { "Ref" : "AWS::StackName" },
+               "         --resource SparklerEC2 ",
+               "         --configsets Setup",
+               "         --region ", { "Ref" : "AWS::Region" }, "\n",
+               "",
+               "# Signal the status from this instance\n",
+               "/opt/aws/bin/cfn-signal -e $? -r \"Installation and restore complete\" \"", { "Ref" : "WaitHandle"}, "\" \n"
+              ]
+            ]
+          }
+        }
+      }
+    },
+    "WaitHandle" : {
+      "Type" : "AWS::CloudFormation::WaitConditionHandle"
+    },
+    "WaitCondition" : {
+      "Type" : "AWS::CloudFormation::WaitCondition",
+      "DependsOn" : "SparklerEC2",
+      "Properties" : {
+        "Handle" : {"Ref" : "WaitHandle"},
+        "Timeout" : "600"
+      }
+    }
+  },
+  "Outputs" : {
+    "InstanceId" : {
+      "Description" : "InstanceId of the newly created Sparkler instance",
+      "Value" : { "Ref" : "SparklerEC2" }
+    }
+  }
+}
