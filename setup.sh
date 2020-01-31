@@ -67,10 +67,13 @@ systemctl daemon-reload
 # 	Step 2: Configure Sparkler Web App								  #
 #######################################################################
 
-#	Download/unpack the tomcat war file
+#	Download/unpack the sparkler files
 wget -O /tmp/sparkler.zip $SPARKLER_DOWNLOAD
 unzip /tmp/sparkler.zip
-unzip /tmp/sparkler/Sparkler-1.04.zip -d /opt/tomcat/webapps/sparkler.war
+unzip /tmp/Sparkler-1.04/Sparkler-1.04.zip
+
+#	Copy the war file to the tomcat webapps directory
+mv /tmp/Sparkler-1.04/sparkler-1.0.4.war /opt/tomcat/webapps/sparkler.war
 
 #	Copy the sparkler.xml config file, to the web app directory
 mkdir /opt/tomcat/Catalina
