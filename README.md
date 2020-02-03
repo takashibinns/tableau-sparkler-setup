@@ -36,7 +36,18 @@ At this point, everything is setup and you just need to get the consumer secret 
 ## Step 2: Install the Sparkler web app on a server
 
 ### Option 1: Using your infrastructure for Sparkler
-This option is applicable if your organization has its own servers (hyper-v, vmware, physical machines, etc) and you want to host the Sparkler web app.  In this case, you can use the setup.sh bash script to automate the installation and configuration of your sparkler server.
+This option is applicable if your organization has its own servers (hyper-v, vmware, physical machines, etc) and you want to host the Sparkler web app.  In this case, you can use the setup.sh bash script to automate the installation and configuration of your sparkler server.  The bash script should work on any linux OS, that leverages [YUM](http://yum.baseurl.org/) as a package manager and [systemd](https://www.linux.com/tutorials/understanding-and-using-systemd/) for service management.  The script was testing on Amazon Linux 2, which is similar to CentOS and RedHat.  
+
+To run the setup, copy or download the __setup.sh__ to the server you want to run Sparkler on, which must be a linux box (CentOS/RedHat preferred).   Also, make sure the setup.sh file has execute permissions (chmod 550).  You will need these 2 additional files on your Sparkler server:
+* __config__ - Simple file that gets sourced by setup.sh, so that we know where to download Tomcat and Sparkler from.  See the example file [here](/template-files/config)
+* __sparkler.xml__ - This will need to be configured to match your Tableau and Salesforce environments.  See the template [here](/template-files/sparkler.xml) for more details on what options need to be set here.
+
+Assuming you copied all three files (setup.sh, config, & sparkler.xml) to the Sparkler server's /tmp directory, you can run the setup like this:
+`sudo ./setup.sh "/tmp/config" "/tmp/sparkler.xml"`
+
+This should download/install Java and Tomcat, configure tomcat to run as a service (so it starts automatically if the server restarts), download/configure/deploy the sparkler web app.  Since this script was testing on Amazon Linux 2, your mileage may vary on other operating systems, but you should be able to tweak the script as needed for different distros.
+
+The only thing not done by this script, is to configure Sparkler with SSL.  In AWS we use a Load Balancer with SSL termination to achieve this, but when deploying on your own server you will need to setup SSL before using Sparkler.  We discourage the use of self-signed SSL certificates, as they will show a warning prompt when used and will not work with the Salesforce mobile app.  For help setting up SSL with tomcat, see their [official documentation](https://tomcat.apache.org/tomcat-7.0-doc/ssl-howto.html#Installing_a_Certificate_from_a_Certificate_Authority) to import the certificate.  You will also need to adjust Tomcat's server.xml configuration file, found at `/opt/tomcat/conf/server.xml`.  There should be a section (commented out) for enabling SSL on port 8443, just remove the `<!--` and `-->` above/below the Connector, and restart tomcat.  Now you should be able to access the sparkler app via SSL on port 8443.
 
 ### Option 2: Using AWS to host Sparkler
 This option is applicable if your organization leverages AWS as a hosting platform.  In this case, you can use the cloudformation template to spin up a new EC2 instance and automatically install/setup Sparkler.  Before using Cloudformation, you need to define a load balancer to sit between Salesforce and your Sparkler instance.  In the AWS console, navigate to the EC2 service and use the left navigation to get to the __Load Balancers__ page.  Click the blue button to __Create Load Balancer__, and select an __Application Load Balancer__.  You should have listeners for HTTP (port 80) and HTTPS (port 443), and assign the load balancer to your availability zones.
