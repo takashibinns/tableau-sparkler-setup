@@ -11,6 +11,9 @@
           "Parameters": [
             "InstanceType",
             "SubnetID",
+            "SecurityGroups",
+            "TargetGroupArn",
+            "IamRole",
             "KeyName"
           ]
         },
@@ -41,6 +44,9 @@
       "ParameterLabels": {
         "KeyName": {
           "default": "Key Pair"
+        },
+        "TargetGroupArn": {
+          "default": "Load Balancer Target Group ARN"
         },
         "sConsumerSecret": {
           "default": "SFDC Connected App Consumer Secret"
@@ -79,7 +85,19 @@
       "ConstraintDescription" : "must be the name of an existing EC2 KeyPair."
     },
     "SubnetID" : {
-      "Description" : "Subnet ID: Where should the new Tableau Server live?",
+      "Description" : "Subnet: Where should the sparkler instance live?",
+      "Type" : "AWS::EC2::Subnet::Id",
+    },
+    "SecurityGroups" : {
+      "Description" : "Security Groups: What security groups should be applied?",
+      "Type" : "List<AWS::EC2::SecurityGroup::Id>",
+    },
+    "IamRole" : {
+      "Description" : "IAM Role: Name of the IAM role to use",
+      "Type" : "String",
+    },
+    "TargetGroupArn" : {
+      "Description" : "ARN of your load balancer's Targe Group",
       "Type" : "String",
     },
     "InstanceType" : {
@@ -157,13 +175,10 @@
     },
     "aws": {
       "LoadBalancer": {
-        "targetgroup": "<load-balancer-target-group-arn>",
         "script": "https://raw.githubusercontent.com/takashibinns/tableau-sparkler-setup/master/update-load-balancer.sh"
       },
       "ec2": {
-        "ami": "ami-0c5204531f799e0c6",
-        "securitygroups": "<my-security-group-1>,<my-security-group-2>,<my-security-group-n>",
-        "iaminstanceprofile": "<my-iam-role-name>"
+        "ami": "ami-0c5204531f799e0c6"
       }
     }
   },
@@ -246,8 +261,8 @@
                   "Fn::Join": [
                     " ",
                     [ 
-                      "./update-load-balancer.sh ",
-                      { "Fn::FindInMap" : [ "aws", "LoadBalancer", "targetgroup"]},
+                      "./update-load-balancer.sh",
+                      { "Ref" : "TargetGroupArn"},
                       { "Ref" : "AWS::Region" },
                       "false"
                     ]
@@ -261,13 +276,8 @@
       "Properties" : {
         "InstanceType" : { "Ref" : "InstanceType" },
         "SubnetId": { "Ref" : "SubnetID" },
-        "SecurityGroupIds" : { 
-          "Fn::Split" : [ 
-            ",", 
-            { "Fn::FindInMap": [ "aws", "ec2", "securitygroups" ] }
-          ]
-        },
-        "IamInstanceProfile" : { "Fn::FindInMap" : [ "aws", "ec2", "iaminstanceprofile"]},
+        "SecurityGroupIds" : { "Ref": "SecurityGroups" },
+        "IamInstanceProfile" : { "Ref": "IamRole" },
         "KeyName" : { "Ref" : "KeyName" },
         "ImageId" : { "Fn::FindInMap" : [ "aws", "ec2", "ami"]},
         "Tags": [
@@ -292,8 +302,6 @@
                "         --resource SparklerEC2 ",
                "         --configsets Setup",
                "         --region ", { "Ref" : "AWS::Region" }, "\n",
-               "",
-               "# Signal the status from this instance\n",
                "/opt/aws/bin/cfn-signal -e $? -r \"Installation and restore complete\" \"", { "Ref" : "WaitHandle"}, "\" \n"
               ]
             ]
@@ -317,6 +325,10 @@
     "InstanceId" : {
       "Description" : "InstanceId of the newly created Sparkler instance",
       "Value" : { "Ref" : "SparklerEC2" }
+    },
+    "PublicIp" : {
+      "Value" : { "Fn::GetAtt" : [ "SparklerEC2", "PublicIp" ]},
+      "Description" : "Sparkler's Public IP Address"
     }
   }
 }
