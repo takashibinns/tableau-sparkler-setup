@@ -1,4 +1,3 @@
 
 TOMCAT_DOWNLOAD="http://mirror.cc.columbia.edu/pub/software/apache/tomcat/tomcat-7/v7.0.99/bin/apache-tomcat-7.0.99.tar.gz"
 SPARKLER_DOWNLOAD="https://downloads.tableau.com/tssoftware/Sparkler-1.04.zip"
-SF_CONSUMER_SECRET=""
