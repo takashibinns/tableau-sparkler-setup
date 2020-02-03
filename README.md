@@ -39,7 +39,60 @@ At this point, everything is setup and you just need to get the consumer secret 
 This option is applicable if your organization has its own servers (hyper-v, vmware, physical machines, etc) and you want to host the Sparkler web app.  In this case, you can use the setup.sh bash script to automate the installation and configuration of your sparkler server.
 
 ### Option 2: Using AWS to host Sparkler
-This option is applicable if your organization leverages AWS as a hosting platform.  In this case, you can use the cloudformation template to spin up a new EC2 instance and automatically install/setup Sparkler.
+This option is applicable if your organization leverages AWS as a hosting platform.  In this case, you can use the cloudformation template to spin up a new EC2 instance and automatically install/setup Sparkler.  Before using Cloudformation, you need to define a load balancer to sit between Salesforce and your Sparkler instance.  In the AWS console, navigate to the EC2 service and use the left navigation to get to the __Load Balancers__ page.  Click the blue button to __Create Load Balancer__, and select an __Application Load Balancer__.  You should have listeners for HTTP (port 80) and HTTPS (port 443), and assign the load balancer to your availability zones.
+
+![Image of create-load-balancer 1](/screenshots/aws-elb-1.png)
+
+Next, specify a certificate to use for HTTPS communications.  If you've never done this before, you can see [this link](https://docs.aws.amazon.com/acm/latest/userguide/gs-acm-request-public.html) on how to create SSL certificates using __AWS Certificate Manager__.
+
+![Image of create-load-balancer 2](/screenshots/aws-elb-2.png)
+
+Next, specify the security groups to use for this load balancer.  You'll want to ensure inbound TCP traffic to ports 80 & 443 is allowed by the security group(s) you select.  Lastly, create a new target group to track the list of EC2 instances that should receive traffic.  This target group should have the protocol set to __HTTP__ and port set to __8080__.  The Cloudformation script will use these default settings to setup Tomcat and the Sparkler app on your EC2 instance.  
+
+![Image of create-load-balancer 3](/screenshots/aws-elb-3.png)
+
+On the _Register Targets_ page, you can leave this blank and just click _Review_.  Then click the blue __Create__ button to create the new Load Balancer and Target Group.  Now that the load balancer is created, there is one more setting to change.  On the Load Balancers page in AWS Console, find your new load balancer and click on the __Listeners__ tab.  Click on the check box next to the __HTTP:80__ listener and then click __Edit__.  Update the default action, to always __Redirect to__ HTTPS on port 443.  This will ensure that if anyone types in _http://<your-sparkler-server>_, that traffic will be routed automatically to _https://<your-sparker-server>_.
+![Image of create-load-balancer 4](/screenshots/aws-elb-4.png)
+  
+When you use the Cloudformation template, you will need your new load balancer's target group ARN.
+![Image of create-load-balancer 5](/screenshots/aws-elb-5.png)
+
+You will also need an __IAM Role__, to assign to the EC2 instances for Sparkler.  You can use an existing role, or [create a new one](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_create_for-service.html#roles-creatingrole-service-console) but make sure your IAM role has the following permissions:
+* ElasticLoadBalancingReadOnly
+* ElasticLoadBalancingFullAccess
+* ResourceGroupsandTagEditorReadOnlyAccess
+* ResourceGroupsandTagEditorFullAccess
+* AmazonEC2SpotFleetTaggingRole
+* AmazonEC2FullAccess
+
+Now we are ready to use the Cloudformation template.  Search the AWS Console for __Cloudformation__ and use the left navigation to get to the __Stacks__ page.  Click the button to __Create Stack - with new resources__.  Step 1 is just to select your template file and click next.
+![Image of create-cloud-formation 1](/screenshots/aws-cf-1.png)
+
+The next page is just for entering your parameters.  The table below, outlines what should be used for each parameter:
+
+| Parameter        | Type         | Description |
+| ---              | ---          | ---         |
+| Instance Type    | AWS | Instance type for the sparkler server, the default should be fine |
+| Subnet ID        | AWS | Choose a subnet, in which to deploy the Sparker server |
+| Security Groups  | AWS | Specify which security groups to apply to the EC2 instance.  Ports 80 and 443 should be allowed for inbound HTTP/HTTPS traffic. |
+| Target Group ARN | AWS | Copy/paste the ARN of your new load balancer's target group |
+| IAM Role         | AWS | Type in the name of the IAM Role to assign to the EC2 instance |
+| Key Pair         | AWS | Key pairs are required to creating any EC2 instance, so that you can actually connect to it via SSH |
+| Consumer Secret       | Salesforce | Copy/Paste the consumer secret from your Salesforce Connected App |
+| User Identifier Field | Salesforce | Select which method should be used to map Salesforce users to Tableau users |
+| Allowed Email Domains | Salesforce | If selecting _signedIdentity_ as the User Identifier Field, you must specify the email domain(s) to allow (ex. _@company.com_ |
+| Tableau Server Host         | Tableau | Name or IP address of your Tableau Server (do not include `https://`) |
+| Tableau Server Port         | Tableau | Port of your Tableau Server (usually 443 for SSL) |
+| Tableau Server SSL          | Tableau | Does your end users access Tableau Server over SSL? |
+| Use Trusted Tickets         | Tableau | Should we use Trusted Tickets to enable SSO? |
+| Tableau User for Testing    | Tableau | Any Tableau User, that we can use to verify SSO is working |
+| Enable Sparkler Status Page | Tableau | Should we enable the status page for Sparker?  Mark yes for testing, but disable this in production. |
+
+The last two pages can be left as is, then click on the orange __Create Stack__ button.  Once started, the events tab should show you the progress of your cloudformation stack.  You should see a green checkmark next to the stack name, once the process is complete. 
+![Image of create-cloud-formation 3](/screenshots/aws-cf-3.png)
+
+You can get the Sparkler server's public IP from the Outputs tab, which can be used for setting up Trusted Tickets on your Tableau Server.
+![Image of create-cloud-formation 4](/screenshots/aws-cf-4.png)
 
 ## Step 3: Enable Trusted Ticket authentication on your Tableau Server.
 Tableau provides instructions for how to setup trusted ticket authentication, which can be found [here](https://help.tableau.com/current/server/en-us/trusted_auth_trustIP.htm).  You'll just need the IP of your Sparkler server, in order to add it as a _trusted ip_ on your Tableau Server.  Once you've configured Tableau Server for Trusted Tickets from Sparkler, you should check Sparkler's status page at `https://<sparkler-server>/sparkler/status`
