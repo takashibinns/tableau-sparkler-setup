@@ -50,56 +50,38 @@ This should download/install Java and Tomcat, configure tomcat to run as a servi
 The only thing not done by this script, is to configure Sparkler with SSL.  In AWS we use a Load Balancer with SSL termination to achieve this, but when deploying on your own server you will need to setup SSL before using Sparkler.  We discourage the use of self-signed SSL certificates, as they will show a warning prompt when used and will not work with the Salesforce mobile app.  For help setting up SSL with tomcat, see their [official documentation](https://tomcat.apache.org/tomcat-7.0-doc/ssl-howto.html#Installing_a_Certificate_from_a_Certificate_Authority) to import the certificate.  You will also need to adjust Tomcat's server.xml configuration file, found at `/opt/tomcat/conf/server.xml`.  There should be a section (commented out) for enabling SSL on port 8443, just remove the `<!--` and `-->` above/below the Connector, and restart tomcat.  Now you should be able to access the sparkler app via SSL on port 8443.
 
 ### Option 2: Using AWS to host Sparkler
-This option is applicable if your organization leverages AWS as a hosting platform.  In this case, you can use the cloudformation template to spin up a new EC2 instance and automatically install/setup Sparkler.  Before using Cloudformation, you need to define a load balancer to sit between Salesforce and your Sparkler instance.  In the AWS console, navigate to the EC2 service and use the left navigation to get to the __Load Balancers__ page.  Click the blue button to __Create Load Balancer__, and select an __Application Load Balancer__.  You should have listeners for HTTP (port 80) and HTTPS (port 443), and assign the load balancer to your availability zones.
+This option is applicable if your organization leverages AWS as a hosting platform.  In this case, you can use the cloudformation template to spin up a new EC2 instance and automatically install/setup Sparkler.  Before using Cloudformation, you need to make sure you have an SSL Certificate available to use.  Since Salesforce.com uses HTTPS for their site, any communication to Sparkler (and Tableau Server) must also be over HTTPS.  If you've never created an SSL Certificate before, you can see [this link](https://docs.aws.amazon.com/acm/latest/userguide/gs-acm-request-public.html) on how to create SSL certificates using __AWS Certificate Manager__.  You will need the ARN from your SSL Certificate, to pass as a parameter for the Cloudformation template.
 
-![Image of create-load-balancer 1](/screenshots/aws-elb-1.png)
+![Image of AWS Certificate Manager UI](/screenshots/aws-cm-1.png)
 
-Next, specify a certificate to use for HTTPS communications.  If you've never done this before, you can see [this link](https://docs.aws.amazon.com/acm/latest/userguide/gs-acm-request-public.html) on how to create SSL certificates using __AWS Certificate Manager__.
-
-![Image of create-load-balancer 2](/screenshots/aws-elb-2.png)
-
-Next, specify the security groups to use for this load balancer.  You'll want to ensure inbound TCP traffic to ports 80 & 443 is allowed by the security group(s) you select.  Lastly, create a new target group to track the list of EC2 instances that should receive traffic.  This target group should have the protocol set to __HTTP__ and port set to __8080__.  The Cloudformation script will use these default settings to setup Tomcat and the Sparkler app on your EC2 instance.  
-
-![Image of create-load-balancer 3](/screenshots/aws-elb-3.png)
-
-On the _Register Targets_ page, you can leave this blank and just click _Review_.  Then click the blue __Create__ button to create the new Load Balancer and Target Group.  Now that the load balancer is created, there is one more setting to change.  On the Load Balancers page in AWS Console, find your new load balancer and click on the __Listeners__ tab.  Click on the check box next to the __HTTP:80__ listener and then click __Edit__.  Update the default action, to always __Redirect to__ HTTPS on port 443.  This will ensure that if anyone types in _http://<your-sparkler-server>_, that traffic will be routed automatically to _https://<your-sparker-server>_.
-![Image of create-load-balancer 4](/screenshots/aws-elb-4.png)
-  
-When you use the Cloudformation template, you will need your new load balancer's target group ARN.
-![Image of create-load-balancer 5](/screenshots/aws-elb-5.png)
-
-You will also need an __IAM Role__, to assign to the EC2 instances for Sparkler.  You can use an existing role, or [create a new one](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_create_for-service.html#roles-creatingrole-service-console) but make sure your IAM role has the following permissions:
-* ElasticLoadBalancingReadOnly
-* ElasticLoadBalancingFullAccess
-* ResourceGroupsandTagEditorReadOnlyAccess
-* ResourceGroupsandTagEditorFullAccess
-* AmazonEC2SpotFleetTaggingRole
-* AmazonEC2FullAccess
-
-Now we are ready to use the Cloudformation template.  Search the AWS Console for __Cloudformation__ and use the left navigation to get to the __Stacks__ page.  Click the button to __Create Stack - with new resources__.  Step 1 is just to select your template file and click next.
+To use the Cloudformation template, search the AWS Console for __Cloudformation__ and use the left navigation to get to the __Stacks__ page.  Click the button to __Create Stack - with new resources__.  Step 1 is just to select your template file and click next.
 ![Image of create-cloud-formation 1](/screenshots/aws-cf-1.png)
 
 The next page is just for entering your parameters.  The table below, outlines what should be used for each parameter:
 
-| Parameter        | Type         | Description |
-| ---              | ---          | ---         |
-| Instance Type    | AWS | Instance type for the sparkler server, the default should be fine |
-| Subnet ID        | AWS | Choose a subnet, in which to deploy the Sparker server |
-| Security Groups  | AWS | Specify which security groups to apply to the EC2 instance.  Ports 80 and 443 should be allowed for inbound HTTP/HTTPS traffic. |
-| Target Group ARN | AWS | Copy/paste the ARN of your new load balancer's target group |
-| IAM Role         | AWS | Type in the name of the IAM Role to assign to the EC2 instance |
-| Key Pair         | AWS | Key pairs are required to creating any EC2 instance, so that you can actually connect to it via SSH |
+| Parameter          | Type         | Description |
+| ---                | ---          | ---         |
+| VPC                | AWS | Select the VPC you want to deploy to |
+| Instance Type      | AWS | Instance type for the sparkler server, the default should be fine |
+| Primary Subnet     | AWS | Choose a subnet, in which to deploy the Sparker server |
+| Secondary Subnet   | AWS | Choose a subnet from a different availability zone.  The load balancer requires 1 subnet from each AZ |
+| Security Groups    | AWS | Specify which security groups to apply to the EC2 instance.  Ports 80 and 443 should be allowed for inbound HTTP/HTTPS traffic. |
+| SSL Certificate ARN | AWS | Copy/paste the ARN of your SSL Certificate, from AWS Certificate Manager |
+| Key Pair            | AWS | Key pairs are required to creating any EC2 instance, so that you can actually connect to it via SSH |
 | Consumer Secret       | Salesforce | Copy/Paste the consumer secret from your Salesforce Connected App |
 | User Identifier Field | Salesforce | Select which method should be used to map Salesforce users to Tableau users |
 | Allowed Email Domains | Salesforce | If selecting _signedIdentity_ as the User Identifier Field, you must specify the email domain(s) to allow (ex. _@company.com_ |
 | Tableau Server Host         | Tableau | Name or IP address of your Tableau Server (do not include `https://`) |
-| Tableau Server Port         | Tableau | Port of your Tableau Server (usually 443 for SSL) |
 | Tableau Server SSL          | Tableau | Does your end users access Tableau Server over SSL? |
-| Use Trusted Tickets         | Tableau | Should we use Trusted Tickets to enable SSO? |
+| Tableau Server Port         | Tableau | Port of your Tableau Server (usually 443 for SSL) |
 | Tableau User for Testing    | Tableau | Any Tableau User, that we can use to verify SSO is working |
+| Use Trusted Tickets         | Tableau | Should we use Trusted Tickets to enable SSO? |
 | Enable Sparkler Status Page | Tableau | Should we enable the status page for Sparker?  Mark yes for testing, but disable this in production. |
 
-The last two pages can be left as is, then click on the orange __Create Stack__ button.  Once started, the events tab should show you the progress of your cloudformation stack.  You should see a green checkmark next to the stack name, once the process is complete. 
+The next page can be left as is, just click the next button.  On the last page, check the blue box at the bottom and then click on the orange __Create Stack__ button.  
+![Image of create-cloud-formation 2](/screenshots/aws-cf-2.png)
+
+Once started, the events tab should show you the progress of your cloudformation stack.  You should see a green checkmark next to the stack name, once the process is complete. 
 ![Image of create-cloud-formation 3](/screenshots/aws-cf-3.png)
 
 You can get the Sparkler server's public IP from the Outputs tab, which can be used for setting up Trusted Tickets on your Tableau Server.
@@ -112,3 +94,18 @@ Tableau provides instructions for how to setup trusted ticket authentication, wh
 # Notes
 * This project is not meant to replace the official documentation on Sparkler
 * For more details on the installation process and settings to tweak, please refer to the [sparkler documentation](https://www.tableau.com/sfdc-canvas-adapter)
+
+# Cloudformation Tempalte Details
+The Cloudformation template creates the following resources:
+* EC2 Instance
+* Application Load Balancer
+... * Listener for HTTP/80
+... * Listener for HTTPS/443
+* Load Balancer Target Group
+* IAM Role
+... * ElasticLoadBalancingReadOnly
+... * ElasticLoadBalancingFullAccess
+... * ResourceGroupsandTagEditorReadOnlyAccess
+... * ResourceGroupsandTagEditorFullAccess
+... * AmazonEC2SpotFleetTaggingRole
+... * AmazonEC2FullAccess
