@@ -97,15 +97,15 @@ Tableau provides instructions for how to setup trusted ticket authentication, wh
 
 # Cloudformation Tempalte Details
 The Cloudformation template creates the following resources:
-* EC2 Instance
-* Application Load Balancer
-... * Listener for HTTP/80
-... * Listener for HTTPS/443
-* Load Balancer Target Group
-* IAM Role
-... * ElasticLoadBalancingReadOnly
-... * ElasticLoadBalancingFullAccess
-... * ResourceGroupsandTagEditorReadOnlyAccess
-... * ResourceGroupsandTagEditorFullAccess
-... * AmazonEC2SpotFleetTaggingRole
-... * AmazonEC2FullAccess
+* EC2 Instance - Used to host the Sparkler web app
+* Application Load Balancer - Provides SSL termination, and directing requests to the tomcat port
+  * Listener for HTTP/80 - Listens for HTTP traffic, and redirects to HTTPS
+  * Listener for HTTPS/443 - Redirects HTTPS traffic to the tomcat web app
+* Load Balancer Target Group - Defines what instances are available
+* IAM Role - Used to define what the EC2 instance is permissioned to do.  The policy equates to the following named policies:
+  * ElasticLoadBalancingReadOnly
+  * ElasticLoadBalancingFullAccess
+  * ResourceGroupsandTagEditorReadOnlyAccess
+  * ResourceGroupsandTagEditorFullAccess
+  * AmazonEC2SpotFleetTaggingRole
+  * AmazonEC2FullAccess
