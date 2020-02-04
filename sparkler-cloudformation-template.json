@@ -9,11 +9,12 @@
             "default": "AWS Settings"
           },
           "Parameters": [
+            "VpcId",
             "InstanceType",
-            "SubnetID",
+            "PrimarySubnet",
+            "SecondarySubnet",
             "SecurityGroups",
-            "TargetGroupArn",
-            "IamRole",
+            "CertificateArn",
             "KeyName"
           ]
         },
@@ -45,8 +46,8 @@
         "KeyName": {
           "default": "Key Pair"
         },
-        "TargetGroupArn": {
-          "default": "Load Balancer Target Group ARN"
+        "CertificateArn": {
+          "default": "SSL Certificate ARN"
         },
         "sConsumerSecret": {
           "default": "SFDC Connected App Consumer Secret"
@@ -79,26 +80,31 @@
     }
   },
   "Parameters" : {
+    "VpcId" : {
+      "Type" : "AWS::EC2::VPC::Id",
+      "Description" : "VpcId of your existing Virtual Private Cloud (VPC)",
+      "ConstraintDescription" : "must be the VPC Id of an existing Virtual Private Cloud."
+    },
     "KeyName": {
       "Description" : "Name of an existing EC2 KeyPair to enable SSH access to the instance",
       "Type": "AWS::EC2::KeyPair::KeyName",
       "ConstraintDescription" : "must be the name of an existing EC2 KeyPair."
     },
-    "SubnetID" : {
-      "Description" : "Subnet: Where should the sparkler instance live?",
-      "Type" : "AWS::EC2::Subnet::Id",
+    "PrimarySubnet" : {
+      "Description" : "Subnet: Defines where the EC2 instance will be deployed",
+      "Type" : "AWS::EC2::Subnet::Id"
+    },
+    "SecondarySubnet" : {
+      "Description" : "Subnet: This should be a subnet from a different availability zone (needed for ELB)",
+      "Type" : "AWS::EC2::Subnet::Id"
     },
     "SecurityGroups" : {
       "Description" : "Security Groups: What security groups should be applied?",
-      "Type" : "List<AWS::EC2::SecurityGroup::Id>",
+      "Type" : "List<AWS::EC2::SecurityGroup::Id>"
     },
-    "IamRole" : {
-      "Description" : "IAM Role: Name of the IAM role to use",
-      "Type" : "String",
-    },
-    "TargetGroupArn" : {
-      "Description" : "ARN of your load balancer's Targe Group",
-      "Type" : "String",
+    "CertificateArn" : {
+      "Description" : "Find the ARN from AWS Certificate Manager",
+      "Type" : "String"
     },
     "InstanceType" : {
       "Description" : "EC2 instance type",
@@ -109,7 +115,7 @@
     },
     "sConsumerSecret" : {
       "Description" : "Consumer Secret of the connected app in Salesforce",
-      "Type" : "String",
+      "Type" : "String"
     },
     "sUserIdentifierField" : {
       "Description" : "Consumer Secret of the connected app in Salesforce",
@@ -124,7 +130,7 @@
     },
     "tHostname" : {
       "Description" : "URL to your Tableau Server",
-      "Type" : "String",
+      "Type" : "String"
     },
     "tUseSSL" : {
       "Description" : "Does your Tableau Server have SSL enabled?",
@@ -153,7 +159,7 @@
     },
     "tTestUsername" : {
       "Description" : "Username to use for testing connectivity",
-      "Type" : "String",
+      "Type" : "String"
     },
     "tEnableSparklerStatusPage" : {
       "Description" : "Should the sparkler web app's status page be enabled?",
@@ -171,6 +177,10 @@
         "tomcat": "http://mirror.cc.columbia.edu/pub/software/apache/tomcat/tomcat-7/v7.0.99/bin/apache-tomcat-7.0.99.tar.gz",
         "sparkler": "https://downloads.tableau.com/tssoftware/Sparkler-1.04.zip",
         "installer": "https://raw.githubusercontent.com/takashibinns/tableau-sparkler-setup/master/setup.sh"
+      },
+      "defaults":{
+        "port": "8080",
+        "protocol": "HTTP"
       }
     },
     "aws": {
@@ -186,6 +196,217 @@
     "SfUserIdentityIsEmailUser": {"Fn::Not": [{"Fn::Equals": ["email.user", {"Ref": "sUserIdentifierField"}]}]}
   },
   "Resources" : {
+    "ApplicationLoadBalancer":{
+      "Type" : "AWS::ElasticLoadBalancingV2::LoadBalancer",
+      "Properties" : {
+          "Name" : "Sparkler-Load-Balancer",
+          "Scheme" : "internet-facing",
+          "SecurityGroups" : { "Ref": "SecurityGroups" },
+          "Subnets" : [ { "Ref" : "PrimarySubnet" },{ "Ref" : "SecondarySubnet" } ],
+          "Tags" : [{"Key":"Description", "Value":"Load Balancer for Sparkler Server"}],
+          "Type" : "application"
+        }
+    },
+    "ALBListenerHTTP" : {
+      "Type" : "AWS::ElasticLoadBalancingV2::Listener",
+      "Properties" : {
+        "DefaultActions" : [
+          {
+            "Type" : "redirect",
+            "RedirectConfig": {
+              "Port" : "443",
+              "Protocol" : "HTTPS",
+              "StatusCode" : "HTTP_301"
+            }
+          }
+        ],
+        "LoadBalancerArn" : { "Ref" : "ApplicationLoadBalancer" },
+        "Port" : "80",
+        "Protocol" : "HTTP"
+      }
+    },
+    "ALBListenerHTTPS" : {
+      "Type" : "AWS::ElasticLoadBalancingV2::Listener",
+      "Properties" : {
+        "DefaultActions" : [{
+          "Type" : "forward",
+          "TargetGroupArn" : { "Ref" : "ALBTargetGroup" }
+        }],
+        "LoadBalancerArn" : { "Ref" : "ApplicationLoadBalancer" },
+        "Port" : "443",
+        "Protocol" : "HTTPS",
+        "Certificates":[{ "CertificateArn" : { "Ref" : "CertificateArn" }}]
+      }
+    },
+    "ALBTargetGroup" : {
+      "Type" : "AWS::ElasticLoadBalancingV2::TargetGroup",
+      "Properties" : {
+        "Name":"Sparkler-LB-Target-Group",
+        "HealthCheckIntervalSeconds" : 30,
+        "HealthCheckTimeoutSeconds" : 5,
+        "HealthyThresholdCount" : 3,
+        "Port" : { "Fn::FindInMap" : [ "sparkler", "defaults", "port"]},
+        "Protocol" : { "Fn::FindInMap" : [ "sparkler", "defaults", "protocol"]},
+        "UnhealthyThresholdCount" : 5,
+        "VpcId" : {"Ref" : "VpcId"},
+        "Targets" : [ 
+          { 
+            "Id" : { "Ref" : "SparklerEC2"}, 
+            "Port" : { "Fn::FindInMap" : [ "sparkler", "defaults", "port"]} }
+        ]
+      }
+    },
+    "SparklerIamProfile" : {
+      "Type" : "AWS::IAM::InstanceProfile",
+      "Properties" : {
+        "InstanceProfileName": "Sparkler-IAM-Profile",
+        "Path" : "/",
+        "Roles" : [
+          {
+            "Ref" : "SparklerIamRole"
+          }
+        ]
+      }
+    },
+    "SparklerIamRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "RoleName": "Sparkler-IAM-Role",
+        "Description": "Allow Sparkler EC2 instance to manage resources",
+        "Path":"/",
+        "Tags":[],
+        "AssumeRolePolicyDocument":{
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": [
+                  "ec2.amazonaws.com"
+                ]
+              },
+              "Action": [
+                "sts:AssumeRole"
+              ]
+            }
+          ]
+        },
+        "Policies": [
+          {
+            "PolicyName": "custom-sparkler-policy",
+            "PolicyDocument": {
+              "Version" : "2012-10-17",
+              "Statement": [
+                {
+                  "Action": "ec2:*",
+                  "Effect": "Allow",
+                  "Resource": "*"
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": "elasticloadbalancing:*",
+                  "Resource": "*"
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": "cloudwatch:*",
+                  "Resource": "*"
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "tag:getResources",
+                    "tag:getTagKeys",
+                    "tag:getTagValues",
+                    "tag:TagResources",
+                    "tag:UntagResources",
+                    "resource-groups:*",
+                    "cloudformation:DescribeStacks",
+                    "cloudformation:ListStackResources"
+                  ],
+                  "Resource": "*"
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "ssm:DescribeAssociation",
+                    "ssm:GetDeployablePatchSnapshotForInstance",
+                    "ssm:GetDocument",
+                    "ssm:DescribeDocument",
+                    "ssm:GetManifest",
+                    "ssm:GetParameters",
+                    "ssm:ListAssociations",
+                    "ssm:ListInstanceAssociations",
+                    "ssm:PutInventory",
+                    "ssm:PutComplianceItems",
+                    "ssm:PutConfigurePackageResult",
+                    "ssm:UpdateAssociationStatus",
+                    "ssm:UpdateInstanceAssociationStatus",
+                    "ssm:UpdateInstanceInformation"
+                  ],
+                  "Resource": "*"
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "ssmmessages:CreateControlChannel",
+                    "ssmmessages:CreateDataChannel",
+                    "ssmmessages:OpenControlChannel",
+                    "ssmmessages:OpenDataChannel"
+                  ],
+                  "Resource": "*"
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "ec2messages:AcknowledgeMessage",
+                    "ec2messages:DeleteMessage",
+                    "ec2messages:FailMessage",
+                    "ec2messages:GetEndpoint",
+                    "ec2messages:GetMessages",
+                    "ec2messages:SendReply"
+                  ],
+                  "Resource": "*"
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "ds:CreateComputer",
+                    "ds:DescribeDirectories"
+                  ],
+                  "Resource": "*"
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "logs:CreateLogGroup",
+                    "logs:CreateLogStream",
+                    "logs:DescribeLogGroups",
+                    "logs:DescribeLogStreams",
+                    "logs:PutLogEvents"
+                  ],
+                  "Resource": "*"
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "s3:GetBucketLocation",
+                    "s3:PutObject",
+                    "s3:GetObject",
+                    "s3:GetEncryptionConfiguration",
+                    "s3:AbortMultipartUpload",
+                    "s3:ListMultipartUploadParts",
+                    "s3:ListBucket",
+                    "s3:ListBucketMultipartUploads"
+                  ],
+                  "Resource": "*"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
     "SparklerEC2" : {
       "Type" : "AWS::EC2::Instance",
       "Metadata": {
@@ -242,10 +463,6 @@
               "/tmp/setup.sh":{
                 "mode": "550",
                 "source": { "Fn::FindInMap" : [ "sparkler", "links", "installer"]}
-              },
-              "/tmp/update-load-balancer.sh":{
-                "mode": "550",
-                "source": { "Fn::FindInMap" : [ "aws", "LoadBalancer", "script"]}
               }
             }
           },
@@ -254,30 +471,16 @@
               "2a-setup-sparkler": {
                 "cwd":"/tmp",
                 "command": "./setup.sh \"/tmp/config\" \"/tmp/sparkler.xml\""
-              },
-              "2b-add-to-lb":{
-                "cwd":"/tmp/",
-                "command":  {
-                  "Fn::Join": [
-                    " ",
-                    [ 
-                      "./update-load-balancer.sh",
-                      { "Ref" : "TargetGroupArn"},
-                      { "Ref" : "AWS::Region" },
-                      "false"
-                    ]
-                  ]
-                }
-              },
+              }
             }
           }
         }
       },
       "Properties" : {
         "InstanceType" : { "Ref" : "InstanceType" },
-        "SubnetId": { "Ref" : "SubnetID" },
+        "SubnetId": { "Ref" : "PrimarySubnet" },
         "SecurityGroupIds" : { "Ref": "SecurityGroups" },
-        "IamInstanceProfile" : { "Ref": "IamRole" },
+        "IamInstanceProfile" : { "Ref": "SparklerIamProfile" },
         "KeyName" : { "Ref" : "KeyName" },
         "ImageId" : { "Fn::FindInMap" : [ "aws", "ec2", "ami"]},
         "Tags": [
