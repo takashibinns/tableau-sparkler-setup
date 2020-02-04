@@ -7,7 +7,9 @@ Tableau provides a solution for embedding content into Salesforce, called [Spark
 You'll need to have the following, in order to complete the setup
 1. A __Salesforce System Administrator__ login, in order to add Sparkler as a connected app in Salesforce
 2. Access to TSM on your Tableau Server, as well as being able to perform a server restart
-3. Either an AWS account with permission to spin up new instances, or a linux server with a SSL certificate (not self-signed)
+3. Either of the following: 
+   1. AWS account with permission to spin up new instances, and an AWS SSL certificate
+   2. Linux server with a SSL certificate (not self-signed)
 
 ## Step 1: Create the Connected App in Salesforce
 The first thing to do, is create a _connected app_ in Salesforce.  Login to Salesforce and goto the __Setup__ app, using the dropdown menu at the top right of the screen.
@@ -95,14 +97,14 @@ Tableau provides instructions for how to setup trusted ticket authentication, wh
 * This project is not meant to replace the official documentation on Sparkler
 * For more details on the installation process and settings to tweak, please refer to the [sparkler documentation](https://www.tableau.com/sfdc-canvas-adapter)
 
-# Cloudformation Tempalte Details
+## Cloudformation Template Details
 The Cloudformation template creates the following resources:
-* EC2 Instance - Used to host the Sparkler web app
-* Application Load Balancer - Provides SSL termination, and directing requests to the tomcat port
+* _EC2 Instance_ - Used to host the Sparkler web app
+* _Application Load Balancer_ - Provides SSL termination, and directing requests to the tomcat port
   * Listener for HTTP/80 - Listens for HTTP traffic, and redirects to HTTPS
   * Listener for HTTPS/443 - Redirects HTTPS traffic to the tomcat web app
-* Load Balancer Target Group - Defines what instances are available
-* IAM Role - Used to define what the EC2 instance is permissioned to do.  The policy equates to the following named policies:
+* _Load Balancer Target Group_ - Defines what instances are available
+* _IAM Role_ - Used to define what the EC2 instance is permissioned to do.  The policy equates to the following named policies:
   * ElasticLoadBalancingReadOnly
   * ElasticLoadBalancingFullAccess
   * ResourceGroupsandTagEditorReadOnlyAccess
