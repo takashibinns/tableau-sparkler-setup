@@ -56,7 +56,7 @@ This option is applicable if your organization leverages AWS as a hosting platfo
 
 ![Image of AWS Certificate Manager UI](/screenshots/aws-cm-1.png)
 
-To use the Cloudformation template, search the AWS Console for __Cloudformation__ and use the left navigation to get to the __Stacks__ page.  Click the button to __Create Stack - with new resources__.  Step 1 is just to select your template file and click next.
+To use the Cloudformation template, search the AWS Console for __Cloudformation__ and use the left navigation to get to the __Stacks__ page.  Click the button to __Create Stack - with new resources__.  Step 1 is just to download the [template file](https://raw.githubusercontent.com/takashibinns/tableau-sparkler-setup/master/sparkler-cloudformation-template.json), upload it using the *Choose File* button, and click the *next* button.
 ![Image of create-cloud-formation 1](/screenshots/aws-cf-1.png)
 
 The next page is just for entering your parameters.  The table below, outlines what should be used for each parameter:
